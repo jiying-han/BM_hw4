@@ -1,0 +1,100 @@
+---
+title: "hw4 code"
+author: "Jiying Han"
+date: "11/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(arsenal)
+library(multcomp)
+knee = read.csv("./Knee.csv") %>% janitor::clean_names()
+```
+
+
+## Problem 2
+1.
+```{r}
+my_labels =  list(below = "Below",average = "Average", above = "Above")
+  
+my_controls <- tableby.control(
+               total = T,
+               test=F,  # No test p-values yet
+               numeric.stats = c("meansd", "medianq1q3", "range","var"),
+               cat.stats = c("countpct"),
+               stats.labels = list(
+               meansd = "Mean (SD)",
+               var = "Variance",
+               medianq1q3 = "Median (Q1, Q3)",
+               range = "Min - Max",
+               countpct = "N (%)"))
+
+knee %>% tableby(data = ., formula = ~ below+average+above, control = my_controls) %>%   
+summary(title = "Descriptive Statistics: physical status before therapy", text=T, labelTranslations = my_labels) 
+```
+From the table we cans ee that, the average of knee 
+
+
+2.
+```{r}
+# reshape the data
+anova_knee = knee %>% 
+  pivot_longer("below":"above",
+  names_to = "physicalstatus",
+  values_to = "value"
+) %>% 
+  mutate(
+    physicalstatus = as.factor(physicalstatus)
+  )
+
+# boxplot
+boxplot(value~physicalstatus ,data = anova_knee,main="physical status before therapy",xlab="Physical status", ylab="Value")
+  
+# anova table
+res<-lm(value~factor(physicalstatus), data=anova_knee)
+anova(res)
+
+qf(0.90,2,22)
+```
+
+
+3.
+```{r}
+# Multiple comparisons adjustments: includes Bonferroni, Holm, Benjamini-Hochberg
+
+ adjus_avbl = knee %>% select(below,average) %>% 
+  pivot_longer("below":"average",
+  names_to = "physicalstatus",
+  values_to = "value"
+) %>% 
+  mutate(
+    physicalstatus = as.factor(physicalstatus)
+  ) %>% drop_na(value)
+
+adjus_avab = knee %>% select(above,average) %>% 
+  pivot_longer("above":"average",
+  names_to = "physicalstatus",
+  values_to = "value"
+) %>% 
+  mutate(
+    physicalstatus = as.factor(physicalstatus)
+  ) %>% drop_na(value)
+
+# For Bonferroni
+pairwise.t.test(anova_knee$value, anova_knee$physicalstatus, p.adj='bonferroni')
+
+
+# For Tukey, we need to use another function with an object created by aov()
+Tukey_comp<-TukeyHSD(res1)
+Tukey_comp
+plot(Tukey_comp)
+
+# Dunnett's test: multiple comparisons with a specified control (here group #1)
+summary(glht(res1), linfct=mcp(Group="Dunnett"))
+
+```

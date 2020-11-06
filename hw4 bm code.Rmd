@@ -20,81 +20,84 @@ knee = read.csv("./Knee.csv") %>% janitor::clean_names()
 ## Problem 2
 1.
 ```{r}
-my_labels =  list(below = "Below",average = "Average", above = "Above")
-  
-my_controls <- tableby.control(
-               total = T,
-               test=F,  # No test p-values yet
-               numeric.stats = c("meansd", "medianq1q3", "range","var"),
-               cat.stats = c("countpct"),
-               stats.labels = list(
-               meansd = "Mean (SD)",
-               var = "Variance",
-               medianq1q3 = "Median (Q1, Q3)",
-               range = "Min - Max",
-               countpct = "N (%)"))
-
-knee %>% tableby(data = ., formula = ~ below+average+above, control = my_controls) %>%   
-summary(title = "Descriptive Statistics: physical status before therapy", text=T, labelTranslations = my_labels) 
-```
-From the table we cans ee that, the average of knee 
-
-
-2.
-```{r}
 # reshape the data
 anova_knee = knee %>% 
   pivot_longer("below":"above",
   names_to = "physicalstatus",
-  values_to = "value"
+  values_to = "time"
 ) %>% 
   mutate(
     physicalstatus = as.factor(physicalstatus)
-  )
+  ) %>% drop_na(time)
+
+
+ab = pull(anova_knee,physicalstatus)
+cd = pull(anova_knee,time)
+tmp_functn<-function(x)c(sum=sum(x), mean=mean(x), var=var(x), n=length(x), medianq1q3 = medianq1q3(x), range = range(x))
+tapply(cd, ab, tmp_functn)
+```
+
+
+
+2.
+```{r}
 
 # boxplot
-boxplot(value~physicalstatus ,data = anova_knee,main="physical status before therapy",xlab="Physical status", ylab="Value")
+boxplot(time~physicalstatus ,data = anova_knee,main="Physical status before therapy",xlab="Physical status", ylab="Time")
   
 # anova table
-res<-lm(value~factor(physicalstatus), data=anova_knee)
+res<-lm(time~factor(physicalstatus), data= anova_knee)
 anova(res)
 
-qf(0.90,2,22)
+qf(0.99,2,22)
 ```
 
 
 3.
 ```{r}
 # Multiple comparisons adjustments: includes Bonferroni, Holm, Benjamini-Hochberg
-
- adjus_avbl = knee %>% select(below,average) %>% 
-  pivot_longer("below":"average",
-  names_to = "physicalstatus",
-  values_to = "value"
-) %>% 
-  mutate(
-    physicalstatus = as.factor(physicalstatus)
-  ) %>% drop_na(value)
-
-adjus_avab = knee %>% select(above,average) %>% 
-  pivot_longer("above":"average",
-  names_to = "physicalstatus",
-  values_to = "value"
-) %>% 
-  mutate(
-    physicalstatus = as.factor(physicalstatus)
-  ) %>% drop_na(value)
+ 
+res1<-aov(time~factor(physicalstatus), data=anova_knee)
+summary(res1)
 
 # For Bonferroni
-pairwise.t.test(anova_knee$value, anova_knee$physicalstatus, p.adj='bonferroni')
-
+pairwise.t.test(anova_knee$time, anova_knee$physicalstatus, p.adj='bonferroni')
+aerfa = 0.01/3
+qt(0.9985,22)
 
 # For Tukey, we need to use another function with an object created by aov()
 Tukey_comp<-TukeyHSD(res1)
 Tukey_comp
 plot(Tukey_comp)
+1-0.0015
 
 # Dunnett's test: multiple comparisons with a specified control (here group #1)
 summary(glht(res1), linfct=mcp(Group="Dunnett"))
-
 ```
+
+
+# Problem 3
+```{r }
+vaccine = matrix(c(54,42,134,16,32,142),nrow = 2,ncol = 3,byrow=T,
+                  dimnames=list(c("Vaccine","Placebo"), 
+                                c("Major Swelling","Minor Swelling ","No swelling")))
+
+vaccine
+chisq.test(vaccine)
+
+test_statistic = chisq.test(vaccine)
+qchisq(0.95,2)
+chisq.test(vaccine) $ expected
+```
+
+
+```{r}
+homo_table = matrix(c(54,42,134,230,16,32,142,190,70,74,276,420),
+                      nrow = 3,ncol = 4,byrow=T,
+                      dimnames=list(c("Vaccine","Placebo","Total"), 
+                                c("Major Swelling","Minor Swelling ","No swelling","Total")))
+homo_table
+```
+
+
+
